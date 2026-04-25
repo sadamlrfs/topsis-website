@@ -63,7 +63,7 @@ export default function Sidebar() {
       {/* Header */}
       <div className=" border-b border-gray-100 bg-white">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          TOPSIS WEBSITE
+          WEBSITE TOPSIS
         </h1>
         <p className="text-sm text-gray-400 mt-0.5">
           Pengambilan Keputusan Hirarki

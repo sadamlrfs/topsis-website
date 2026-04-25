@@ -6,7 +6,7 @@ export default function HomePage() {
       <div>
         <div className="text-4xl mb-4">📊</div>
         <h2 className="text-lg font-semibold text-gray-700">
-          Selamat datang di TOPSIS WEBSITE
+          Selamat datang di WEBSITE TOPSIS
         </h2>
         <p className="text-sm text-gray-400 mt-2 max-w-xs mx-auto">
           Pilih project dari sidebar kiri, atau buat project baru untuk mulai
