@@ -1,17 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { useProjectStore } from "@/store/projectStore";
 import { computeGlobalWeights, getTotalGlobalWeight } from "@/lib/topsis";
 import { ahpWeightsFromMatrix, initAHPMatrix, SAATY_SCALE } from "@/lib/ahp";
 import type { HierarchyNode } from "@/types";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
-function DirectWeightPanel({
+// ─── Direct % panel (always visible, mandatory) ───────────────────────────
+
+function DirectPanel({
   projectId,
   parentId,
 }: {
@@ -29,16 +31,14 @@ function DirectWeightPanel({
 
   function autoNormalize() {
     if (total === 0) return;
-    children.forEach((c) => {
-      updateNode(projectId, c.id, {
-        localWeight: c.localWeight / total,
-      });
-    });
+    children.forEach((c) =>
+      updateNode(projectId, c.id, { localWeight: c.localWeight / total }),
+    );
   }
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-2">
+    <div className="border border-gray-200 overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
         <span className="text-sm font-medium text-gray-700">
           {parent.parentId === null ? "Kriteria utama" : parent.name}
         </span>
@@ -49,9 +49,9 @@ function DirectWeightPanel({
               isValid ? "text-green-600" : "text-red-500",
             )}
           >
-            Total: {(total * 100).toFixed(2)}% {isValid ? "" : "✗"}
+            Total: {(total * 100).toFixed(2)}% {isValid ? "✓" : "✗ harus 100%"}
           </span>
-          {!isValid && (
+          {!isValid && total > 0 && (
             <Button
               variant="outline"
               size="sm"
@@ -63,43 +63,41 @@ function DirectWeightPanel({
           )}
         </div>
       </div>
-      <div className="border border-gray-200 overflow-hidden">
-        {children.map((child, idx) => (
-          <div
-            key={child.id}
-            className={cn(
-              "flex items-center gap-3 px-4 py-2.5",
-              idx !== 0 && "border-t border-gray-100",
-            )}
-          >
-            <span className="flex-1 text-sm">{child.name}</span>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                className="w-24 h-7 text-sm text-right"
-                min={0}
-                max={100}
-                step={0.01}
-                value={parseFloat(((child.localWeight || 0) * 100).toFixed(4))}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  if (!isNaN(val)) {
-                    updateNode(projectId, child.id, {
-                      localWeight: val / 100,
-                    });
-                  }
-                }}
-              />
-              <span className="text-xs text-gray-400 w-4">%</span>
-            </div>
+
+      {children.map((child, idx) => (
+        <div
+          key={child.id}
+          className={cn(
+            "flex items-center gap-3 px-4 py-2.5",
+            idx !== 0 && "border-t border-gray-100",
+          )}
+        >
+          <span className="flex-1 text-sm text-gray-700">{child.name}</span>
+          <div className="flex items-center gap-1.5">
+            <Input
+              type="number"
+              className="w-24 h-7 text-sm text-right"
+              min={0}
+              max={100}
+              step={0.01}
+              value={parseFloat(((child.localWeight || 0) * 100).toFixed(4))}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val))
+                  updateNode(projectId, child.id, { localWeight: val / 100 });
+              }}
+            />
+            <span className="text-xs text-gray-400 w-4">%</span>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
 
-function AHPPanel({
+// ─── AHP helper panel (optional, collapsible) ─────────────────────────────
+
+function AHPHelper({
   projectId,
   parentId,
 }: {
@@ -107,21 +105,20 @@ function AHPPanel({
   parentId: string;
 }) {
   const { projects, setAHPComparison, applyAHPWeights } = useProjectStore();
+  const [open, setOpen] = useState(false);
+
   const project = projects[projectId];
   const parent = project?.nodes[parentId];
-
   const children = parent
     ? parent.children.map((id) => project!.nodes[id])
     : [];
   const n = children.length;
   const saved = parent ? project!.ahpComparisons[parentId] : undefined;
-
   const [matrix, setMatrix] = useState<number[][]>(
     saved?.matrix ?? initAHPMatrix(n),
   );
 
-  if (!parent) return null;
-  if (n < 2) return null;
+  if (!parent || n < 2) return null;
 
   const { weights, CR } = ahpWeightsFromMatrix(matrix);
   const highCR = CR > 0.1;
@@ -142,98 +139,112 @@ function AHPPanel({
   }
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">
-          {parent.parentId === null ? "Kriteria utama" : parent.name}
+    <div className="border border-blue-100 overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between px-4 py-2 bg-blue-50 hover:bg-blue-100 transition-colors text-left"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="text-xs font-medium text-blue-700">
+          Bantu dengan AHP Pairwise{" "}
         </span>
-        <span
-          className={cn(
-            "text-xs",
-            highCR ? "text-amber-600" : "text-green-600",
+        <span className="text-blue-400 text-xs">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 py-3">
+          {highCR && (
+            <Alert className="mb-3 border-amber-200 bg-amber-50">
+              <AlertDescription className="text-xs text-amber-700">
+                Consistency Ratio (CR = {CR.toFixed(4)}) melebihi 0.1.
+                Pertimbangkan untuk merevisi perbandingan.
+              </AlertDescription>
+            </Alert>
           )}
-        >
-          CR = {CR.toFixed(4)} {highCR ? "⚠ > 0.1" : ""}
-        </span>
-      </div>
 
-      {highCR && (
-        <Alert className="mb-3 border-amber-200 bg-amber-50">
-          <AlertDescription className="text-xs text-amber-700">
-            Consistency Ratio melebihi 0.1. Pertimbangkan untuk merevisi
-            perbandingan.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="overflow-x-auto">
-        <table className="text-xs border-collapse">
-          <thead>
-            <tr>
-              <th className="w-28" />
-              {children.map((c) => (
-                <th
-                  key={c.id}
-                  className="px-2 py-1 font-medium text-gray-600 text-center min-w-20"
-                >
-                  {c.name}
-                </th>
-              ))}
-              <th className="px-2 py-1 font-medium text-gray-600">Bobot</th>
-            </tr>
-          </thead>
-          <tbody>
-            {children.map((row, i) => (
-              <tr key={row.id}>
-                <td className="px-2 py-1 font-medium text-gray-700 text-right pr-3 whitespace-nowrap">
-                  {row.name}
-                </td>
-                {children.map((_, j) => (
-                  <td key={j} className="px-1 py-0.5">
-                    {i === j ? (
-                      <div className="w-16 h-7 bg-gray-100 flex items-center justify-center text-gray-400">
-                        1
-                      </div>
-                    ) : i < j ? (
-                      <select
-                        className="w-20 h-7 text-xs border border-gray-200 px-1 bg-white"
-                        value={matrix[i][j]}
-                        onChange={(e) =>
-                          setCell(i, j, parseFloat(e.target.value))
-                        }
-                      >
-                        {SAATY_SCALE.map((s) => (
-                          <option key={s.value} value={s.value}>
-                            {s.value < 1
-                              ? `1/${Math.round(1 / s.value)}`
-                              : s.value}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="w-20 h-7 bg-gray-50 flex items-center justify-center text-gray-500">
-                        {matrix[i][j] < 1
-                          ? `1/${Math.round(1 / matrix[i][j])}`
-                          : matrix[i][j].toFixed(0)}
-                      </div>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse">
+              <thead>
+                <tr>
+                  <th className="w-28" />
+                  {children.map((c) => (
+                    <th
+                      key={c.id}
+                      className="px-2 py-1 font-medium text-gray-600 text-center min-w-20"
+                    >
+                      {c.name}
+                    </th>
+                  ))}
+                  <th className="px-2 py-1 font-medium text-gray-600">
+                    Bobot AHP
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {children.map((row, i) => (
+                  <tr key={row.id}>
+                    <td className="px-2 py-1 font-medium text-gray-700 text-right pr-3 whitespace-nowrap">
+                      {row.name}
+                    </td>
+                    {children.map((_, j) => (
+                      <td key={j} className="px-1 py-0.5">
+                        {i === j ? (
+                          <div className="w-16 h-7 bg-gray-100 flex items-center justify-center text-gray-400">
+                            1
+                          </div>
+                        ) : i < j ? (
+                          <select
+                            className="w-20 h-7 text-xs border border-gray-200 px-1 bg-white"
+                            value={matrix[i][j]}
+                            onChange={(e) =>
+                              setCell(i, j, parseFloat(e.target.value))
+                            }
+                          >
+                            {SAATY_SCALE.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.value < 1
+                                  ? `1/${Math.round(1 / s.value)}`
+                                  : s.value}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="w-20 h-7 bg-gray-50 flex items-center justify-center text-gray-500">
+                            {matrix[i][j] < 1
+                              ? `1/${Math.round(1 / matrix[i][j])}`
+                              : matrix[i][j].toFixed(0)}
+                          </div>
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-2 py-1 text-center font-mono text-blue-700">
+                      {(weights[i] * 100).toFixed(2)}%
+                    </td>
+                  </tr>
                 ))}
-                <td className="px-2 py-1 text-center font-mono text-gray-700">
-                  {(weights[i] * 100).toFixed(2)}%
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              </tbody>
+            </table>
+          </div>
 
-      <Button size="sm" className="mt-3 text-xs h-7" onClick={apply}>
-        Terapkan Bobot
-      </Button>
+          <div className="flex items-center gap-3 mt-3">
+            <Button size="sm" className="text-xs h-7" onClick={apply}>
+              Terapkan ke Direct %
+            </Button>
+            <span
+              className={cn(
+                "text-xs",
+                highCR ? "text-amber-600" : "text-green-600",
+              )}
+            >
+              CR = {CR.toFixed(4)} {highCR ? "⚠" : "✓"}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+// ─── collect all non-leaf parent IDs in tree order ───────────────────────
 
 function collectParentIds(
   nodes: Record<string, HierarchyNode>,
@@ -251,12 +262,12 @@ function collectParentIds(
   return ids;
 }
 
+// ─── main export ─────────────────────────────────────────────────────────
+
 export default function WeightEditor({ projectId }: { projectId: string }) {
   const project = useProjectStore((s) => s.projects[projectId]);
-  const { setWeightMode } = useProjectStore();
   if (!project) return null;
 
-  const mode = project.weightMode;
   const parentIds = collectParentIds(project.nodes, project.goalId);
   const globalWeights = computeGlobalWeights(project.nodes, project.goalId);
   const rawTotal = getTotalGlobalWeight(project.nodes, project.goalId);
@@ -265,54 +276,54 @@ export default function WeightEditor({ projectId }: { projectId: string }) {
 
   return (
     <div>
-      {/* Mode selector */}
-      <div className="flex items-center gap-3 mb-6">
-        <span className="text-sm text-gray-600">Mode input:</span>
-        <div className=" border border-gray-200 overflow-hidden">
-          {(["direct", "ahp"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setWeightMode(projectId, m)}
-              className={cn(
-                "px-4 py-1.5 text-sm transition-colors",
-                mode === m
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-50",
-              )}
-            >
-              {m === "direct" ? "Direct (%)" : "AHP Pairwise"}
-            </button>
-          ))}
-        </div>
+      {/* Info banner */}
+      <div className="mb-5 p-3 bg-gray-50 border border-gray-200 text-sm text-gray-600 space-y-1">
+        <p>
+          <span className="font-semibold text-gray-800">Direct %</span> wajib
+          diisi dan harus berjumlah <span className="font-semibold">100%</span>{" "}
+          di setiap level untuk membuka tab Hasil.
+        </p>
+        <p className="text-xs text-gray-400">
+          Gunakan{" "}
+          <span className="font-medium text-blue-600">AHP Pairwise</span>{" "}
+          (opsional) sebagai alat bantu, hasilnya akan otomatis mengisi nilai
+          Direct % di level tersebut.
+        </p>
       </div>
 
-      {/* Weight panels per parent */}
+      {/* Per-level panels */}
+      {parentIds.length === 0 && (
+        <div className="text-center py-8 text-gray-400 text-sm">
+          Belum ada kriteria. Bangun hirarki terlebih dahulu.
+        </div>
+      )}
+
       {parentIds.map((pid) => {
         const parent = project.nodes[pid];
         if (!parent || parent.children.length === 0) return null;
-        return mode === "direct" ? (
-          <DirectWeightPanel key={pid} projectId={projectId} parentId={pid} />
-        ) : (
-          <AHPPanel key={pid} projectId={projectId} parentId={pid} />
+        return (
+          <div key={pid} className="mb-5 space-y-1">
+            <DirectPanel projectId={projectId} parentId={pid} />
+            <AHPHelper projectId={projectId} parentId={pid} />
+          </div>
         );
       })}
 
-      {/* Global summary */}
-      <div className="mt-6 border border-gray-200 overflow-hidden">
-        <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-          <span className="text-sm font-medium">
-            Ringkasan Bobot Global (Leaf)
-          </span>
-          <span
-            className={cn(
-              "text-sm font-semibold",
-              totalValid ? "text-green-600" : "text-red-500",
-            )}
-          >
-            Total: {totalPct.toFixed(2)}% {totalValid ? "" : "✗ (harus 100%)"}
-          </span>
-        </div>
-        <div>
+      {/* Global weight summary */}
+      {globalWeights.length > 0 && (
+        <div className="mt-2 border border-gray-200 overflow-hidden">
+          <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+            <span className="text-sm font-medium">Ringkasan Bobot Global</span>
+            <span
+              className={cn(
+                "text-sm font-semibold",
+                totalValid ? "text-green-600" : "text-red-500",
+              )}
+            >
+              Total: {totalPct.toFixed(2)}%{" "}
+              {totalValid ? "✓" : "✗ (harus 100%)"}
+            </span>
+          </div>
           {globalWeights.map((gw, idx) => (
             <div
               key={gw.leafId}
@@ -340,13 +351,8 @@ export default function WeightEditor({ projectId }: { projectId: string }) {
               </span>
             </div>
           ))}
-          {globalWeights.length === 0 && (
-            <div className="px-4 py-6 text-center text-gray-400 text-sm">
-              Belum ada kriteria daun. Bangun hirarki terlebih dahulu.
-            </div>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -14,6 +14,12 @@ function fmt(n: number, d = 4) {
   return n.toFixed(d);
 }
 
+function fmtRaw(n: number) {
+  if (Number.isInteger(n)) return n.toLocaleString("id-ID");
+  const s = parseFloat(n.toPrecision(8)).toString();
+  return s;
+}
+
 export default function TopsisResultTable({
   projectId,
 }: {
@@ -28,8 +34,7 @@ export default function TopsisResultTable({
   const filledCells = project.scores.filter(
     (s) =>
       leaves.some((l) => l.id === s.leafCriterionId) &&
-      alts.some((a) => a.id === s.alternativeId) &&
-      s.value > 0,
+      alts.some((a) => a.id === s.alternativeId),
   ).length;
 
   if (leaves.length === 0 || alts.length < 2 || filledCells < totalCells) {
@@ -122,13 +127,13 @@ export default function TopsisResultTable({
         </div>
       </div>
 
-      {/* Step 1: Decision matrix */}
+      {/* Step 1: Decision matrix — use decimals={-1} for raw/auto formatting */}
       <StepTable
         title="Step 1 Matriks Keputusan (X)"
         headers={globalWeights.map((w) => w.leafName)}
         rowHeaders={alts.map((a) => a.name)}
         data={X}
-        decimals={0}
+        decimals={-1}
       />
 
       {/* Step 2: Normalized */}
@@ -319,7 +324,11 @@ function StepTable({
                       key={j}
                       className="px-3 py-2 font-mono text-center text-gray-600"
                     >
-                      {decimals === 0 ? val.toFixed(0) : fmt(val, decimals)}
+                      {decimals === -1
+                        ? fmtRaw(val)
+                        : decimals === 0
+                          ? val.toFixed(0)
+                          : fmt(val, decimals)}
                     </td>
                   ))}
                 </tr>

@@ -4,7 +4,7 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { useProjectStore } from "@/store/projectStore";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { getLeafNodes } from "@/lib/topsis";
+import { getLeafNodes, getTotalGlobalWeight } from "@/lib/topsis";
 
 const TABS = [
   { key: "hierarchy", label: "Hirarki" },
@@ -41,11 +41,14 @@ export default function ProjectLayout({
   const altCount = project.alternatives.length;
   const scoreCount = project.scores.length;
   const totalRequired = leafCount * altCount;
+  const rawWeightTotal = getTotalGlobalWeight(project.nodes, project.goalId);
+  const weightsValid = Math.abs(rawWeightTotal - 1) < 0.01;
   const resultReady =
     leafCount > 0 &&
     altCount >= 2 &&
     scoreCount === totalRequired &&
-    totalRequired > 0;
+    totalRequired > 0 &&
+    weightsValid;
 
   const activeTab =
     TABS.find((t) => pathname.endsWith(`/${t.key}`))?.key ?? "hierarchy";
@@ -85,7 +88,11 @@ export default function ProjectLayout({
               >
                 {tab.label}
                 {tab.key === "result" && !resultReady && (
-                  <span className="ml-1 text-gray-300">🔒</span>
+                  <span className="ml-1 text-gray-300" title={
+                    !weightsValid
+                      ? "Direct % bobot belum 100%"
+                      : "Lengkapi penilaian terlebih dahulu"
+                  }>🔒</span>
                 )}
               </Link>
             );

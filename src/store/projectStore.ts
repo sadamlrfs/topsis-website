@@ -21,7 +21,7 @@ interface ProjectStore {
 
   // Node CRUD
   addNode: (projectId: string, parentId: string, name: string) => string;
-  updateNode: (projectId: string, nodeId: string, updates: Partial<Pick<HierarchyNode, 'name' | 'description' | 'localWeight' | 'direction'>>) => void;
+  updateNode: (projectId: string, nodeId: string, updates: Partial<Pick<HierarchyNode, 'name' | 'description' | 'localWeight' | 'direction' | 'scoreType' | 'currency' | 'scoreMin' | 'scoreMax' | 'scoreStep' | 'scoreLabels'>>) => void;
   deleteNode: (projectId: string, nodeId: string) => void;
   reorderChildren: (projectId: string, parentId: string, newOrder: string[]) => void;
 
@@ -38,6 +38,7 @@ interface ProjectStore {
   // Scores
   setScore: (projectId: string, altId: string, leafId: string, value: number) => void;
   setScoreScale: (projectId: string, max: number) => void;
+  setScaleMin: (projectId: string, min: number) => void;
   setScaleLabel: (projectId: string, value: number, label: string) => void;
 
   // Import/export
@@ -312,6 +313,14 @@ export const useProjectStore = create<ProjectStore>()(
           projects: {
             ...s.projects,
             [projectId]: touch({ ...s.projects[projectId], scoreScale: max }),
+          },
+        })),
+
+      setScaleMin: (projectId, min) =>
+        set((s) => ({
+          projects: {
+            ...s.projects,
+            [projectId]: touch({ ...s.projects[projectId], scaleMin: min }),
           },
         })),
 

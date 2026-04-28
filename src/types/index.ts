@@ -1,5 +1,12 @@
 export type CriterionDirection = 'benefit' | 'cost';
 export type WeightMode = 'direct' | 'ahp';
+export type ScoreInputType = 'number' | 'currency';
+export type CurrencyType = 'IDR' | 'USD';
+
+export interface ScoreLabel {
+  value: number;
+  label: string;
+}
 
 export interface HierarchyNode {
   id: string;
@@ -9,6 +16,12 @@ export interface HierarchyNode {
   children: string[];
   localWeight: number;
   direction?: CriterionDirection;
+  scoreType?: ScoreInputType;
+  currency?: CurrencyType;
+  scoreMin?: number;
+  scoreMax?: number;
+  scoreStep?: number;
+  scoreLabels?: ScoreLabel[];
 }
 
 export interface Alternative {
@@ -37,8 +50,9 @@ export interface Project {
   scores: ScoreEntry[];
   weightMode: WeightMode;
   ahpComparisons: Record<string, AHPComparison>;
-  scoreScale: number;          // max value of the scoring dropdown (min always 1)
-  scaleLabels?: Record<number, string>; // custom label per value, e.g. { 1: 'Buruk', 5: 'Baik' }
+  scoreScale: number;          // upper boundary hint for scoring input
+  scaleMin?: number;           // lower boundary hint for scoring input (default 0)
+  scaleLabels?: Record<number, string>;
   createdAt: string;
   updatedAt: string;
 }
