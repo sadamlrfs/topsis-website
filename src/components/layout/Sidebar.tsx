@@ -66,7 +66,7 @@ export default function Sidebar() {
           WEBSITE TOPSIS
         </h1>
         <p className="text-sm text-gray-400 mt-0.5">
-          Pengambilan Keputusan Hirarki
+          Pengambilan Keputusan Kriteria
         </p>
 
         {/* Actions */}

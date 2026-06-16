@@ -12,7 +12,7 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: "WEBSITE TOPSIS",
-  description: "Hitung ranking alternatif dengan metode TOPSIS hirarkis",
+  description: "Hitung ranking alternatif dengan metode TOPSIS multi-kriteria",
 };
 
 export default function RootLayout({

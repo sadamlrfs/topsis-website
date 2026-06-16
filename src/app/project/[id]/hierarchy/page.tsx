@@ -8,7 +8,7 @@ export default function HierarchyPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-4">
-        <h2 className="text-2xl font-bold">Struktur Hirarki</h2>
+        <h2 className="text-2xl font-bold">Struktur Kriteria</h2>
       </div>
       <HierarchyBuilder projectId={id} />
     </div>

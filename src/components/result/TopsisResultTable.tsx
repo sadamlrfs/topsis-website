@@ -9,6 +9,7 @@ import {
 } from "@/lib/topsis";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { exportAsExcel } from "@/lib/export";
 
 function fmt(n: number, d = 4) {
   return n.toFixed(d);
@@ -40,7 +41,7 @@ export default function TopsisResultTable({
   if (leaves.length === 0 || alts.length < 2 || filledCells < totalCells) {
     return (
       <div className="text-center py-12 text-gray-400 text-sm">
-        Lengkapi hirarki, alternatif, dan semua penilaian untuk melihat hasil.
+        Lengkapi kriteria, alternatif, dan semua penilaian untuk melihat hasil.
       </div>
     );
   }
@@ -78,7 +79,22 @@ export default function TopsisResultTable({
     <div className="space-y-8">
       {/* Ranking summary */}
       <div>
-        <h3 className="text-base font-semibold mb-3">Hasil Ranking</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold">Hasil Ranking</h3>
+          <button
+            onClick={() =>
+              exportAsExcel(
+                project.title,
+                result,
+                alts,
+                globalWeights,
+              )
+            }
+            className="h-8 px-3 text-sm border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium"
+          >
+            Export Excel
+          </button>
+        </div>
         <div className="border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">

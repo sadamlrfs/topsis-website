@@ -24,7 +24,7 @@ export default function VisualizationPage() {
     if (!treeRef.current) return;
     setExporting(true);
     try {
-      const filename = project!.title || "hirarki";
+      const filename = project!.title || "kriteria";
       if (format === "pdf") await exportAsPDF(treeRef.current, filename);
       else await exportAsImage(treeRef.current, format, filename);
     } finally {
@@ -36,7 +36,7 @@ export default function VisualizationPage() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Visualisasi Hirarki</h2>
+          <h2 className="text-2xl font-bold">Visualisasi Kriteria</h2>
         </div>
         <div className="flex gap-2">
           {(["png", "jpg", "pdf"] as const).map((fmt) => (

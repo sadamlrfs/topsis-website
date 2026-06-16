@@ -4,23 +4,12 @@ import { useState } from "react";
 import { useProjectStore } from "@/store/projectStore";
 import { getLeafNodes } from "@/lib/topsis";
 import { cn } from "@/lib/utils";
-import type {
-  HierarchyNode,
-  ScoreInputType,
-  CurrencyType,
-  ScoreLabel,
-} from "@/types";
+import type { HierarchyNode, ScoreInputType, ScoreLabel } from "@/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function sym(c: CurrencyType) {
-  return c === "IDR" ? "Rp" : "$";
-}
 function getType(n: HierarchyNode): ScoreInputType {
   return n.scoreType ?? "number";
-}
-function getCurrency(n: HierarchyNode): CurrencyType {
-  return n.currency ?? "IDR";
 }
 function getLabels(n: HierarchyNode): ScoreLabel[] {
   return n.scoreLabels ?? [];
@@ -34,7 +23,7 @@ function isReady(n: HierarchyNode): boolean {
   if (getType(n) === "number") {
     return n.scoreMin !== undefined && n.scoreMax !== undefined;
   }
-  return n.scoreMin !== undefined; // currency only needs min
+  return true; // variabel: free-form, always ready
 }
 
 const MAX_OPTS = 200;
@@ -52,7 +41,7 @@ function buildOptions(
   for (let i = 0; i < count && opts.length < MAX_OPTS; i++) {
     const v = parseFloat((min + i * step).toFixed(10));
     const lbl = labels.find((l) => l.value === v)?.label;
-    opts.push({ value: v, display: lbl ? `${v} — ${lbl}` : String(v) });
+    opts.push({ value: v, display: lbl ? `${v}  ${lbl}` : String(v) });
   }
   return opts;
 }
@@ -60,7 +49,6 @@ function buildOptions(
 // settings blob that can be clipboard-copied between criteria
 interface ClipSettings {
   scoreType?: ScoreInputType;
-  currency?: CurrencyType;
   scoreMin?: number;
   scoreMax?: number;
   scoreStep?: number;
@@ -82,6 +70,35 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
   const [clipSrc, setClipSrc] = useState<string | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
 
+  // local draft: lets number inputs be freely edited (Backspace/clear) without
+  // snapping back to the stored value before a valid number is re-entered.
+  const [inputDrafts, setInputDrafts] = useState<Record<string, string>>({});
+  function draftKey(altId: string, leafId: string) {
+    return `${altId}|${leafId}`;
+  }
+  function draftVal(
+    altId: string,
+    leafId: string,
+    stored: number | "",
+  ): string {
+    const k = draftKey(altId, leafId);
+    return k in inputDrafts
+      ? inputDrafts[k]
+      : stored === ""
+        ? ""
+        : String(stored);
+  }
+  function setDraft(altId: string, leafId: string, raw: string) {
+    setInputDrafts((p) => ({ ...p, [draftKey(altId, leafId)]: raw }));
+  }
+  function clearDraft(altId: string, leafId: string) {
+    setInputDrafts((p) => {
+      const n = { ...p };
+      delete n[draftKey(altId, leafId)];
+      return n;
+    });
+  }
+
   if (!project) return null;
 
   const leaves = getLeafNodes(project.nodes, project.goalId);
@@ -90,7 +107,7 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
   if (leaves.length === 0)
     return (
       <div className="text-center py-12 text-gray-400 text-sm">
-        Belum ada kriteria daun. Bangun hirarki terlebih dahulu.
+        Belum ada kriteria daun. Bangun kriteria terlebih dahulu.
       </div>
     );
   if (alts.length < 2)
@@ -151,7 +168,6 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
   function copySettings(leaf: HierarchyNode) {
     setClip({
       scoreType: leaf.scoreType,
-      currency: leaf.currency,
       scoreMin: leaf.scoreMin,
       scoreMax: leaf.scoreMax,
       scoreStep: leaf.scoreStep,
@@ -186,7 +202,6 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
         <div className="space-y-2">
           {leaves.map((leaf) => {
             const type = getType(leaf);
-            const currency = getCurrency(leaf);
             const labels = getLabels(leaf);
             const step = getStep(leaf);
             const isOpen = expandedLeaf === leaf.id;
@@ -225,43 +240,36 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                       })
                     }
                   >
-                    <option value="number">Angka</option>
-                    <option value="currency">Uang</option>
+                    <option value="number">Skala</option>
+                    <option value="currency">Variabel</option>
                   </select>
 
-                  {/* currency selector */}
+                  {/* variabel hint */}
                   {type === "currency" && (
-                    <select
-                      className="h-7 text-xs border border-gray-300 px-1 bg-white focus:outline-none"
-                      value={currency}
-                      onChange={(e) =>
-                        updateNode(projectId, leaf.id, {
-                          currency: e.target.value as CurrencyType,
-                        })
-                      }
-                    >
-                      <option value="IDR">IDR (Rp)</option>
-                      <option value="USD">USD ($)</option>
-                    </select>
+                    <span className="text-xs text-blue-500 italic">
+                      Nilai bebas, isi langsung di tabel bawah
+                    </span>
                   )}
 
-                  {/* min */}
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">Min:</span>
-                    <input
-                      type="number"
-                      step="any"
-                      placeholder="—"
-                      value={leaf.scoreMin !== undefined ? leaf.scoreMin : ""}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value);
-                        updateNode(projectId, leaf.id, {
-                          scoreMin: isNaN(v) ? undefined : v,
-                        });
-                      }}
-                      className="w-24 h-7 text-xs border border-gray-300 px-2 focus:outline-none focus:ring-1 focus:ring-gray-400"
-                    />
-                  </div>
+                  {/* min — skala type only */}
+                  {type === "number" && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-500">Min:</span>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="—"
+                        value={leaf.scoreMin !== undefined ? leaf.scoreMin : ""}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          updateNode(projectId, leaf.id, {
+                            scoreMin: isNaN(v) ? undefined : v,
+                          });
+                        }}
+                        className="w-24 h-7 text-xs border border-gray-300 px-2 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                      />
+                    </div>
+                  )}
 
                   {/* max — number type only */}
                   {type === "number" && (
@@ -271,9 +279,7 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                         type="number"
                         step="any"
                         placeholder="—"
-                        value={
-                          leaf.scoreMax !== undefined ? leaf.scoreMax : ""
-                        }
+                        value={leaf.scoreMax !== undefined ? leaf.scoreMax : ""}
                         onChange={(e) => {
                           const v = parseFloat(e.target.value);
                           updateNode(projectId, leaf.id, {
@@ -366,7 +372,7 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                             className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-0.5"
                           >
                             <span className="font-medium">{l.value}</span>
-                            <span className="text-gray-500">— {l.label}</span>
+                            <span className="text-gray-500"> {l.label}</span>
                             <button
                               className="text-gray-400 hover:text-red-500 ml-0.5"
                               onClick={() => removeLabel(leaf.id, l.value)}
@@ -434,7 +440,6 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
               </th>
               {leaves.map((leaf) => {
                 const type = getType(leaf);
-                const currency = getCurrency(leaf);
                 const labels = getLabels(leaf);
                 const ready = isReady(leaf);
                 return (
@@ -456,7 +461,7 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                       </span>
                       <span className="text-xs text-gray-300">·</span>
                       <span className="text-xs text-gray-400 font-normal">
-                        {type === "currency" ? sym(currency) : "Angka"}
+                        {type === "currency" ? "Variabel" : "Skala"}
                       </span>
                     </div>
                     {!ready && (
@@ -475,7 +480,7 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                             <span className="font-medium text-gray-500">
                               {l.value}
                             </span>{" "}
-                            — {l.label}
+                            {l.label}
                           </div>
                         ))}
                       </div>
@@ -508,6 +513,8 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                       >
                         <input
                           disabled
+                          readOnly
+                          value=""
                           placeholder="—"
                           className="w-full h-8 text-sm border border-gray-200 px-2 bg-gray-50 text-gray-300 cursor-not-allowed text-center"
                         />
@@ -527,12 +534,6 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                       getStep(leaf),
                       getLabels(leaf),
                     );
-                    const selectedLabel =
-                      filled && val !== ""
-                        ? getLabels(leaf).find((l) => l.value === Number(val))
-                            ?.label
-                        : undefined;
-
                     // fallback: too many options → plain number input
                     if (!opts) {
                       return (
@@ -544,7 +545,7 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                             type="number"
                             step="any"
                             placeholder="—"
-                            value={val}
+                            value={draftVal(alt.id, leaf.id, val)}
                             min={leaf.scoreMin}
                             max={leaf.scoreMax}
                             className={cn(
@@ -554,10 +555,12 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                                 : "border-gray-200 text-gray-800",
                             )}
                             onChange={(e) => {
+                              setDraft(alt.id, leaf.id, e.target.value);
                               const v = parseFloat(e.target.value);
                               if (!isNaN(v))
                                 setScore(projectId, alt.id, leaf.id, v);
                             }}
+                            onBlur={() => clearDraft(alt.id, leaf.id)}
                           />
                         </td>
                       );
@@ -582,57 +585,42 @@ export default function ScoringMatrix({ projectId }: { projectId: string }) {
                               setScore(projectId, alt.id, leaf.id, v);
                           }}
                         >
-                          <option value="">— pilih —</option>
+                          <option value="">  pilih  </option>
                           {opts.map((o) => (
                             <option key={o.value} value={String(o.value)}>
                               {o.display}
                             </option>
                           ))}
                         </select>
-                        {selectedLabel && (
-                          <div
-                            className="text-xs text-blue-500 mt-0.5 truncate"
-                            title={selectedLabel}
-                          >
-                            {selectedLabel}
-                          </div>
-                        )}
                       </td>
                     );
                   }
 
-                  /* ── currency type → free-form input, starts at min ── */
-                  const currency = getCurrency(leaf);
-                  const minVal = leaf.scoreMin!;
-
+                  /* ── variabel type → free-form number, no constraints ── */
                   return (
                     <td
                       key={leaf.id}
                       className="border border-gray-200 px-2 py-1"
                     >
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-400 shrink-0 select-none">
-                          {sym(currency)}
-                        </span>
-                        <input
-                          type="number"
-                          step="any"
-                          min={minVal}
-                          placeholder={String(minVal)}
-                          value={val}
-                          className={cn(
-                            "flex-1 min-w-0 h-8 text-sm border px-2 bg-white text-right focus:outline-none focus:ring-1 focus:ring-gray-400",
-                            !filled
-                              ? "border-amber-300 text-gray-400"
-                              : "border-gray-200 text-gray-800",
-                          )}
-                          onChange={(e) => {
-                            const v = parseFloat(e.target.value);
-                            if (!isNaN(v))
-                              setScore(projectId, alt.id, leaf.id, v);
-                          }}
-                        />
-                      </div>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="—"
+                        value={draftVal(alt.id, leaf.id, val)}
+                        className={cn(
+                          "w-full h-8 text-sm border px-2 bg-white text-right focus:outline-none focus:ring-1 focus:ring-gray-400",
+                          !filled
+                            ? "border-amber-300 text-gray-400"
+                            : "border-gray-200 text-gray-800",
+                        )}
+                        onChange={(e) => {
+                          setDraft(alt.id, leaf.id, e.target.value);
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v))
+                            setScore(projectId, alt.id, leaf.id, v);
+                        }}
+                        onBlur={() => clearDraft(alt.id, leaf.id)}
+                      />
                     </td>
                   );
                 })}

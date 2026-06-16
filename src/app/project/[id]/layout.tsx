@@ -7,11 +7,10 @@ import { cn } from "@/lib/utils";
 import { getLeafNodes, getTotalGlobalWeight } from "@/lib/topsis";
 
 const TABS = [
-  { key: "hierarchy", label: "Hirarki" },
+  { key: "hierarchy", label: "Kriteria" },
   { key: "weights", label: "Bobot" },
   { key: "alternatives", label: "Alternatif" },
   { key: "scoring", label: "Penilaian" },
-  { key: "visualization", label: "Visualisasi" },
   { key: "result", label: "Hasil" },
 ];
 

@@ -294,7 +294,7 @@ export default function WeightEditor({ projectId }: { projectId: string }) {
       {/* Per-level panels */}
       {parentIds.length === 0 && (
         <div className="text-center py-8 text-gray-400 text-sm">
-          Belum ada kriteria. Bangun hirarki terlebih dahulu.
+          Belum ada kriteria. Bangun kriteria terlebih dahulu.
         </div>
       )}
 
