@@ -1,5 +1,13 @@
-import { redirect } from 'next/navigation';
+"use client";
 
-export default function ProjectPage({ params }: { params: { id: string } }) {
-  redirect(`/project/${params.id}/hierarchy`);
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+export default function ProjectPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  useEffect(() => {
+    router.replace(`/project/${id}/hierarchy`);
+  }, [id, router]);
+  return null;
 }

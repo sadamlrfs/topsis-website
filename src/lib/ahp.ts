@@ -33,12 +33,13 @@ export function ahpWeightsFromMatrix(M: number[][]): {
 
   const weights = normalized.map((row) => row.reduce((a, b) => a + b, 0) / n);
 
-  // Lambda max
+  // Lambda max: (A·w)[i] / w[i] averaged over all rows
   let lambdaMax = 0;
-  for (let j = 0; j < n; j++) {
-    const wSum = weights.reduce((sum, w, i) => sum + M[i][j] * w, 0);
-    lambdaMax += wSum / (n * weights[j]);
+  for (let i = 0; i < n; i++) {
+    const Aw_i = weights.reduce((sum, w, j) => sum + M[i][j] * w, 0);
+    lambdaMax += Aw_i / weights[i];
   }
+  lambdaMax /= n;
 
   const CI = (lambdaMax - n) / (n - 1);
   const ri = RI[n] ?? 1.49;
